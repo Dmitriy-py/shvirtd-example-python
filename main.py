@@ -13,6 +13,7 @@ db_host = os.environ.get('DB_HOST', '127.0.0.1')
 db_user = os.environ.get('DB_USER', 'app')
 db_password = os.environ.get('DB_PASSWORD', 'very_strong')
 db_name = os.environ.get('DB_NAME', 'example')
+log_table_name = os.environ.get('LOG_TABLE_NAME', 'requests')
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,7 +23,7 @@ async def lifespan(app: FastAPI):
         with get_db_connection() as db:
             cursor = db.cursor()
             create_table_query = f"""
-            CREATE TABLE IF NOT EXISTS {db_name}.requests (
+            CREATE TABLE IF NOT EXISTS {db_name}.{log_table_name} (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 request_date DATETIME,
                 request_ip VARCHAR(255)
@@ -83,7 +84,7 @@ def index(request: Request, ip_address: Optional[str] = Depends(get_client_ip)):
     try:
         with get_db_connection() as db:
             cursor = db.cursor()
-            query = "INSERT INTO requests (request_date, request_ip) VALUES (%s, %s)"
+            query = f"INSERT INTO {log_table_name} (request_date, request_ip) VALUES (%s, %s)"
             values = (current_time, final_ip)
             cursor.execute(query, values)
             db.commit()
@@ -120,7 +121,7 @@ def get_requests():
     try:
         with get_db_connection() as db:
             cursor = db.cursor()
-            query = "SELECT id, request_date, request_ip FROM requests ORDER BY id DESC LIMIT 50"
+            query = f"SELECT id, request_date, request_ip FROM {log_table_name} ORDER BY id DESC LIMIT 50"
             cursor.execute(query)
             records = cursor.fetchall()
             cursor.close()
