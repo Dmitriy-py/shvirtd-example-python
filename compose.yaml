@@ -1,0 +1,58 @@
+version: "3.8"
+
+include:
+  - path: proxy.yaml
+
+name: shvirtd-project
+
+services:
+
+  db:
+    image: mariadb:10.6.4-focal
+    container_name: mysql-db-compose
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      backend:
+        ipv4_address: 172.20.0.10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    image: web_app:latest
+    container_name: web-app-compose
+    restart: on-failure
+
+    expose:
+      - 5000
+
+    environment:
+      DB_HOST: 172.20.0.10
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+      LOG_TABLE_NAME: api_logs_v2
+
+    depends_on:
+      - db
+    command: |
+      /bin/bash -c "
+      echo 'Waiting 15 seconds for MariaDB initialization...';
+      sleep 15;
+      echo 'Starting Uvicorn...';
+      exec uvicorn main:app --host 0.0.0.0 --port 5000
+      "
+    networks:
+      backend:
+        ipv4_address: 172.20.0.5
+
+volumes:
+  db_data: {}
